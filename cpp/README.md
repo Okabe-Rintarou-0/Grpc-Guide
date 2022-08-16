@@ -70,3 +70,16 @@ rpc Greet(Request) returns (stream Response) {}
 这个方法会使用两个 `cq`，`call_cq` 和 `notification_cq`。经过查阅资料，得知两者的区别：
 > Notification_cq gets the tag back indicating a call has started. All subsequent operations(reads, writes, etc) on that call
 > report back to call_cq.
+
+### 是否线程安全？
+
+`grpc::ServerWriter::Write` 和 `grpc::ServerAsyncWriter::Write` 等 **streaming api** 都不是线程安全的。 也就是说如果多个线程都使用
+`writer.Write(xxx)` 而没有加锁，会导致问题。（事实上会产生一些 assertion failure）
+
+> Only one write may be outstanding at any given time. This means that after calling Write, one must wait to receive tag from the completion queue BEFORE calling Write again. This is thread-safe with respect to AsyncReaderInterface::Read
+
+### 并发连接数
+
+> By default, most servers set this limit to 100 concurrent streams. A gRPC channel uses a single HTTP/2 connection, and concurrent calls are multiplexed on that connection. When the number of active calls reaches the connection stream limit, additional calls are queued in the client.
+
+默认情况下，大多数服务器将此限制设置为 **100** 个并发流。gRPC 通道使用**单个** HTTP/2 连接，并发调用在该连接上**多路复用**。当活动调用的数量达到连接流限制时，其他调用将排队。
